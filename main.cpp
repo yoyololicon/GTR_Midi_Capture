@@ -16,7 +16,7 @@ class pitch_buf
 {
 public:
     pitch_buf(){
-        confidence =  2;
+        confidence =  6;
         range = 1.0;
         ref = 0;
         };
@@ -40,6 +40,7 @@ void pitch_buf::add_smpl(smpl_t &value)
                 confidence--;
             else
             {
+                //change the reference pitch value if the incoming value change dramatically
                 ref = value;
                 buf.clear();
                 buf.push_back(ref);
@@ -56,6 +57,7 @@ void pitch_buf::add_smpl(smpl_t &value)
 
 uchar pitch_buf::midi_value()
 {
+    //output the average value
     smpl_t sum = 0;
     for(vector<smpl_t>::iterator i = buf.begin(); i != buf.end(); i++)
         sum+=*i;
@@ -65,7 +67,7 @@ uchar pitch_buf::midi_value()
 void pitch_buf::clear()
 {
     buf.clear();
-    confidence = 2;
+    confidence = 6;
 }
 
 int main(int argc, char* argv[])
@@ -112,7 +114,6 @@ int main(int argc, char* argv[])
         );
         return 1;
     }
-    /*  always startup portsf */
 
 /* STAGE 3 */
     infile = new_aubio_source(argv[ARG_INFILE], 0, HOPSIZE);
@@ -130,9 +131,7 @@ int main(int argc, char* argv[])
     aubio_pitch_set_unit(pitch, "midi");
 
 /* STAGE 4 */
-    /*
-       output buffer, etc., before creating outfile
-    */
+    //create midi file object
 
     MidiFile outfile;
     outfile.absoluteTicks();
@@ -159,8 +158,10 @@ int main(int argc, char* argv[])
     bpm = aubio_tempo_get_bpm(tempo);
     printf("average bpm %.3f\n", bpm);
 
+    //set midi file tempo
     outfile.addTempo(0, 0, bpm);
     aubio_source_seek(infile, 0);
+    // set the notes minion intervals base on bpm
     aubio_onset_set_minioi_s(notes, (smpl_t)10.0/bpm);
 
     double frame2tpq = bpm*tpq/(double)(samplerate*60);
@@ -169,10 +170,12 @@ int main(int argc, char* argv[])
     int haveNote = 0;
 
     do{
+        //process audio data to onset and pitch object
         aubio_source_do(infile, vec, &read);
         aubio_onset_do(notes, vec, tout);
         aubio_pitch_do(pitch, vec, pout);
 
+        //check whether the notes have finished
         if(aubio_level_detection(vec, -50) == 1. && haveNote)
         {
             midievent[1] = ibuf.midi_value();
@@ -186,9 +189,11 @@ int main(int argc, char* argv[])
 
         framesread += read;
 
+        //check whether there is a new note
         if(tout->data[0]){
             pos = aubio_onset_get_last(notes);
 
+            //kill the previous note
             if(haveNote)
             {
                 midievent[1] = ibuf.midi_value();
@@ -198,6 +203,7 @@ int main(int argc, char* argv[])
                 outfile.addEvent(1, (int)(pos*frame2tpq)-1, midievent);
                 ibuf.clear();
             }
+            //mark that there is a new note just happened
             midievent[0] = 0x90;
             midievent[2] = 127;
             haveNote = 1;
@@ -205,17 +211,20 @@ int main(int argc, char* argv[])
         }
         else if(haveNote)
         {
+            //add pitch value into buffer if the note haven't finished
             ibuf.add_smpl(pout->data[0]);
         }
 
     }while(read == HOPSIZE);
 
+    //kill the last note
     if(haveNote)
     {
         midievent[0] = 0x80;
         outfile.addEvent(1, (int)(aubio_onset_get_last(notes)*frame2tpq), midievent);
     }
 
+    //error checking
     if(framesread < 0)	{
         printf("Error reading infile.\n");
         return 1;
@@ -224,9 +233,11 @@ int main(int argc, char* argv[])
         printf("Done: read %d frames (expected %d) at %dHz (%d blocks) from %s\n",
                framesread, n_frames_expected, samplerate, framesread/HOPSIZE, argv[ARG_INFILE]);
 
+    //write to real midi file
     outfile.sortTracks();
     outfile.write(argv[ARG_OUTFILE]);
 
+    //close and release memory
     aubio_source_close(infile);
 
     del_fvec(vec);
