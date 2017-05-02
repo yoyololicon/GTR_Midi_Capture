@@ -78,7 +78,6 @@ int main(int argc, char* argv[])
     uint_t read = 0;
     smpl_t bpm = 0;
 
-    bool havestart = false;
     double lastpos = 0;
     map<int, int> interval;
     map<int, int>::iterator it;
@@ -90,14 +89,7 @@ int main(int argc, char* argv[])
         aubio_tempo_do(tempo, vec, tout);
 
         framesread += read;
-        if(!havestart){
-            if(aubio_level_detection(vec, -50) < 0)
-                havestart = true;
-            else
-                continue;
-        }
-
-        if(pout->data[0] == 0){
+        if(pout->data[0] == 0 && aubio_level_detection(vec, -50) < 0){
             double pos = framesread/(double)samplerate;
             if(lastpos > 0){
                 lastpos = pos - lastpos;
@@ -126,8 +118,12 @@ int main(int argc, char* argv[])
         return 1;
     }
     else
-        cout << "Done: read " << framesread << " frames (expected " << n_frames_expected <<
-             ") at " << samplerate << "Hz (" << framesread/HOPSIZE << " blocks) from " << argv[ARG_INFILE] << endl;
+        cout << "Done: read " << framesread
+             << " frames (expected " << n_frames_expected
+             << ") at " << samplerate
+             << "Hz (" << framesread/HOPSIZE
+             << " blocks) from " << argv[ARG_INFILE] << endl;
+
     bpm = aubio_tempo_get_bpm(tempo);
     cout << "average bpm " << bpm << endl;
     //close and release memory
