@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <vector>
 #include <aubio/aubio.h>
 using namespace std;
 
@@ -81,6 +82,7 @@ int main(int argc, char* argv[])
     double lastpos = 0;
     map<int, int> interval;
     map<int, int>::iterator it;
+    vector<double> pos_0;
 
     do{
         //process audio data to onset and pitch object
@@ -91,6 +93,7 @@ int main(int argc, char* argv[])
         framesread += read;
         if(pout->data[0] == 0 && aubio_level_detection(vec, -50) < 0){
             double pos = framesread/(double)samplerate;
+            pos_0.push_back(pos);
             if(lastpos > 0){
                 lastpos = pos - lastpos;
                 int temp = lastpos*1000;
@@ -107,6 +110,58 @@ int main(int argc, char* argv[])
 
     }while(read == HOPSIZE);
 
+    int tmp = 0;
+    double time;
+    for(it = interval.begin(); it != interval.end(); it++){
+        if(tmp < it->second){
+            time = (double)(it->first);
+            tmp = it->second;
+        }
+    }
+
+    time /=1000;
+    cout << "the smallest interval is " << time << " s" << endl;
+
+    //compute the grid
+    int count = 0;
+    double pos;
+    lastpos = 0.0;
+    for(vector<double>::iterator itt = pos_0.begin(); itt != pos_0.end(); itt++){
+        if(lastpos > 0.0){
+            while(pos < *itt){
+                pos += time;
+                count++;
+            }
+            double pos2 = pos - time;
+            int count2 = count - 1;
+            if(pos - *itt < 0.02){
+                double l = (*itt - lastpos)/count;
+                while(lastpos < *itt){
+                    cout << lastpos << endl;
+                    lastpos+=l;
+                }
+                pos = *itt;
+                lastpos = pos;
+                time =  (time + l)/2;
+                count = 0;
+            }
+            else if(*itt - pos2 < 0.02 && count2 > 0){
+                double l = (*itt - lastpos)/count2;
+                while(lastpos < *itt){
+                    cout << lastpos << endl;
+                    lastpos+=l;
+                }
+                pos = *itt;
+                lastpos = pos;
+                time =  (time + l)/2;
+                count = 0;
+            }
+        }
+        else {
+            pos = *itt;
+            lastpos = pos;
+        }
+    }
 
     for(it = interval.begin(); it != interval.end(); it++){
         fout << it->first << "\t" << it->second << endl;

@@ -58,7 +58,7 @@ void pitch_buf::add_smpl(smpl_t &value)
 uchar pitch_buf::midi_value()
 {
     //output the average value
-    smpl_t sum = 0;
+    smpl_t sum = 0.0;
     for(vector<smpl_t>::iterator i = buf.begin(); i != buf.end(); i++)
         sum+=*i;
     return (uchar)(sum/buf.size());
