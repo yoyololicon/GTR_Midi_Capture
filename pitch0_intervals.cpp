@@ -134,26 +134,28 @@ int main(int argc, char* argv[])
             }
             double pos2 = pos - time;
             int count2 = count - 1;
-            if(pos - *itt < 0.02){
+            if(pos - *itt < 0.03){
                 double l = (*itt - lastpos)/count;
                 while(lastpos < *itt){
-                    cout << lastpos << endl;
+                    fout << lastpos << endl;
                     lastpos+=l;
                 }
                 pos = *itt;
                 lastpos = pos;
                 time =  (time + l)/2;
+                cout << "change intervals to " << time << " at time " << *itt << endl;
                 count = 0;
             }
-            else if(*itt - pos2 < 0.02 && count2 > 0){
+            else if(*itt - pos2 < 0.03 && count2 > 0){
                 double l = (*itt - lastpos)/count2;
                 while(lastpos < *itt){
-                    cout << lastpos << endl;
+                    fout << lastpos << endl;
                     lastpos+=l;
                 }
                 pos = *itt;
                 lastpos = pos;
                 time =  (time + l)/2;
+                cout << "change intervals to " << time << " at time " << *itt << endl;
                 count = 0;
             }
         }
@@ -161,10 +163,6 @@ int main(int argc, char* argv[])
             pos = *itt;
             lastpos = pos;
         }
-    }
-
-    for(it = interval.begin(); it != interval.end(); it++){
-        fout << it->first << "\t" << it->second << endl;
     }
 
     //error checking

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <vector>
+#include <map>
 #include <cmath>
 #include <aubio/aubio.h>
 #include <midifile/MidiFile.h>
@@ -19,7 +20,7 @@ public:
         confidence =  6;
         range = 1.0;
         ref = 0;
-        };
+    };
     ~pitch_buf(){};
     void add_smpl(smpl_t&);
     uchar midi_value();
@@ -149,11 +150,79 @@ int main(int argc, char* argv[])
     uint_t read = 0;
     smpl_t bpm = 0;
 
-    //get average bpm
+    double lastpos = 0;
+    map<int, int> interval;
+    map<int, int>::iterator it;
+    vector<double> pos_0;
+
     do{
+        //process audio data to onset and pitch object
         aubio_source_do(infile, vec, &read);
+        aubio_pitch_do(pitch, vec, pout);
         aubio_tempo_do(tempo, vec, tout);
+
+        framesread += read;
+
+        if(pout->data[0] == 0 && aubio_level_detection(vec, -50) < 0){
+            double pos = framesread/(double)samplerate;
+            pos_0.push_back(pos);
+
+            if(lastpos > 0){
+                lastpos = pos - lastpos;
+                int temp = lastpos*1000;
+                if(temp < 10)
+                    continue;
+                it = interval.find(temp);
+                if(it != interval.end())
+                    it->second++;
+                else
+                    interval[temp] = 1;
+            }
+            lastpos = pos;
+        }
+
     }while(read == HOPSIZE);
+
+    framesread = 0;
+
+    int tmp = 0;
+    double time;
+    for(it = interval.begin(); it != interval.end(); it++){
+        if(tmp < it->second){
+            time = (double)(it->first);
+            tmp = it->second;
+        }
+    }
+
+    time /=1000;
+    cout << "the smallest interval is " << time << " s" << endl;
+
+    //compute the grid
+    int count = 0;
+    double p;
+    vector<uint_t> grid;
+    vector<double>::iterator itt = pos_0.begin();
+    lastpos = p = *itt;
+    itt++;
+    for(; itt != pos_0.end(); itt++){
+        do{
+            p += time;
+            count++;
+            if(fabs(*itt-p) < 0.03){
+                double l = (*itt - lastpos)/count;
+                while(lastpos < *itt){
+                    grid.push_back(lastpos*samplerate);
+                    lastpos+=l;
+                }
+                p = *itt;
+                lastpos = p;
+                time =  (time + l)/2;
+                cout << "change intervals to " << time << " at time " << *itt << endl;
+                count = 0;
+                break;
+            }
+        }while(p < *itt);
+    }
 
     bpm = aubio_tempo_get_bpm(tempo);
     printf("average bpm %.3f\n", bpm);
@@ -168,6 +237,7 @@ int main(int argc, char* argv[])
     uint_t pos = 0;
     int pitchpos = 0;
     int haveNote = 0;
+    vector<uint_t>::iterator g = grid.begin();
 
     do{
         //process audio data to onset and pitch object
@@ -192,6 +262,15 @@ int main(int argc, char* argv[])
         //check whether there is a new note
         if(tout->data[0]){
             pos = aubio_onset_get_last(notes);
+
+            while(*g < pos + samplerate/50 && g != grid.end()){
+                if(fabs(*g - pos) < samplerate/50){
+                    pos = *g;
+                    cout << "change" << endl;
+                    break;
+                } else
+                    g++;
+            }
 
             //kill the previous note
             if(haveNote)
