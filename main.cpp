@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
         do{
             p += time;
             count++;
-            if(fabs(*itt-p) < 0.03){
+            if(fabs(*itt-p) < 0.045){
                 double l = (*itt - lastpos)/count;
                 while(lastpos < *itt){
                     grid.push_back(lastpos*samplerate);
@@ -237,7 +237,8 @@ int main(int argc, char* argv[])
     uint_t pos = 0;
     int pitchpos = 0;
     int haveNote = 0;
-    vector<uint_t>::iterator g = grid.begin();
+    vector<uint_t>::iterator g1 = grid.begin();
+    vector<uint_t>::iterator g2 = g1+1;
 
     do{
         //process audio data to onset and pitch object
@@ -263,13 +264,20 @@ int main(int argc, char* argv[])
         if(tout->data[0]){
             pos = aubio_onset_get_last(notes);
 
-            while(*g < pos + samplerate/50 && g != grid.end()){
-                if(fabs(*g - pos) < samplerate/50){
-                    pos = *g;
-                    cout << "change" << endl;
-                    break;
-                } else
-                    g++;
+            if(g2 != grid.end()){
+                while(*g2 <= pos){
+                    g1 = g2;
+                    g2++;
+                    if(g2 == grid.end())
+                        break;
+                }
+
+                if(*g1 <= pos && g2 != grid.end()){
+                    if(pos - *g1 < (*g2 - *g1)/2)
+                        pos = *g1;
+                    else
+                        pos = *g2;
+                }
             }
 
             //kill the previous note
