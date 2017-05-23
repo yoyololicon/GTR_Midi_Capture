@@ -216,8 +216,6 @@ int main(int argc, char* argv[])
                 }
                 p = *itt;
                 lastpos = p;
-                time =  (time + l)/2;
-                cout << "change intervals to " << time << " at time " << *itt << endl;
                 count = 0;
                 break;
             }
@@ -264,6 +262,7 @@ int main(int argc, char* argv[])
         if(tout->data[0]){
             pos = aubio_onset_get_last(notes);
 
+            //set the note to grid
             if(g2 != grid.end()){
                 while(*g2 <= pos){
                     g1 = g2;
