@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <cstdio>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -124,7 +124,7 @@ int main(int argc, char* argv[])
     }
 
     /* allocate space for  sample frame buffer ...*/
-    n_frames_expected = aubio_source_get_duration(infile);
+    //n_frames_expected = aubio_source_get_duration(infile);
     samplerate = aubio_source_get_samplerate(infile);
     notes = new_aubio_onset("default", NFRAMES, HOPSIZE, samplerate);
     tempo = new_aubio_tempo("default", NFRAMES, HOPSIZE, samplerate);
